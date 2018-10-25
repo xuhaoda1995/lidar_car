@@ -8,7 +8,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "/home/howstar/velo_process/src/cmake-build-debug/devel/lib/velo_process/velo_process_node",
+            "program": "${workspaceFolder}/../../cmake-build-debug/devel/lib/velo_process/velo_process_node",
             "args": ["-pcapFile",
             "/home/howstar/pclData/32e.pcap"],
             "stopAtEntry": false,
