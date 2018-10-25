@@ -108,7 +108,6 @@ void filterThresholdOfObstacle(double laserHeightM, double laserPitchD, double a
 
 pcl::PointXYZI transform_point(pcl::PointXYZI pt)
 {
-
     double pitchR = g_LiDAR_pos[3] * M_PI / 180;
     double rollR = g_LiDAR_pos[4] * M_PI / 180;
     double yawR = g_LiDAR_pos[5] * M_PI / 180;

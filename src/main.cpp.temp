@@ -89,7 +89,7 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input) {
 
 
     //show
-    cloud_show::show_points(trackersCenter,curb_detection,obs_idx,cloud_data);
+    cloud_show::all_publish(trackersCenter,curb_detection,obs_idx,cloud_data);
 
     g_frame_num++;
 

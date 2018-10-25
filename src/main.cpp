@@ -10,21 +10,15 @@
 
 //#include<pcl/range_image/range_image.h>
 
-#include "road_curb_detection.h"
 #include "hazard_point_detect.h"
 #include "grid_obs_create.h"
-#include "cloudShow.h"
-// #include "obs_cluster.h"
-#include "cluster_obs_by_image.h"
-#include "obs_cluster_dbscan.h"
+#include "cloud_publisher.h"
 #include "hdl_grabber.h"
 
 ros::Publisher pub;
 using namespace pcl;
 using namespace pcl::console;
-//pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
 
-CTrackersCenter trackingCenter;
 int g_frame_num = 0;
 
 #define SHOW_FPS 0
@@ -50,7 +44,7 @@ int g_frame_num = 0;
 	} while (false)
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 #define MAX_CLOUD_SISE 70000
 
 typedef pcl::PointCloud<pcl::PointXYZI>::ConstPtr CloudConstPtr;
@@ -82,19 +76,22 @@ class HDL32EViewer
 		cloud_ = cloud;
 	}
 
-	void inital()
+	void initial()
 	{
 		//calculate obstacle _angle threshold, run only once
 		filterThresholdOfObstacle(g_LiDAR_pos[2], g_LiDAR_pos[3], 0, 0, 0.1);
 
+		//initial publisher
 		cloud_show::init_pub();
 	}
 
 	void
 	run()
 	{
-		inital();
+		initial();
 
+		///////////////////////////////////////////////////////////////////////////////
+		//open pcap grabber thread
 		boost::function<void(const CloudConstPtr &, const CloudSrcPtr &)> cloud_cb = boost::bind(
 
 			&HDL32EViewer::cloud_callback, this, _1, _2);
@@ -102,6 +99,7 @@ class HDL32EViewer
 			cloud_cb);
 
 		grabber_.start();
+		///////////////////////////////////////////////////////////////////////////////
 
 		int frame_num = 1;
 		while (true)
@@ -119,58 +117,39 @@ class HDL32EViewer
 			{
 				double t1 = pcl::getTime();
 
+				///////////////////////////////////////////////////////////////////////////////
+				//cloud pretreatment,get cloud taking vehicle as coordinate center
 				pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ori(new pcl::PointCloud<pcl::PointXYZI>);
-				pcl::PointCloud<pcl::PointSrc>::Ptr cloud_src(new pcl::PointCloud<pcl::PointSrc>);
 				for(auto pt : cloud->points)
 				{
 					pt=transform_point(pt);
-					pcl::PointSrc tmpSrc;
-					tmpSrc.angle=atan2(pt.y,pt.x)*100+0.5;
-					tmpSrc.radius=sqrt(pt.x*pt.x+pt.y*pt.y+pt.z*pt.z)*500+0.5;
 					cloud_ori->push_back(pt);
-					cloud_src->push_back(tmpSrc);
+				}
+				///////////////////////////////////////////////////////////////////////////////
+
+				///////////////////////////////////////////////////////////////////////////////
+				//obstacle detection
+				vector<int> obs_idx;
+				HazardDetection hazardDetection;
+				hazardDetection.detectHazardPoint(cloud, cloudsrc, obs_idx);
+				std::cout << "obs time is " << pcl::getTime() - t1 << "s" << std::endl;
+				///////////////////////////////////////////////////////////////////////////////
+
+				///////////////////////////////////////////////////////////////////////////////
+				//rasterize
+				GridCreator grid_obs;
+				grid_obs.createGrid(cloud, obs_idx);
+				///////////////////////////////////////////////////////////////////////////////
+
+				pcl::PointCloud<pcl::PointXYZI>::Ptr obsCloud(new pcl::PointCloud<pcl::PointXYZI>);
+				for (auto idx : obs_idx)
+				{
+					obsCloud->push_back(cloud_ori->points[idx]);
 				}
 
-				// vector<int> obs_idx;
-				// HazardDetection hazardDetection;
-				// hazardDetection.detectHazardPoint(cloud, cloudsrc, obs_idx);
-				// std::cout << "obs time is " << pcl::getTime() - t1 << "s" << std::endl;
-
-				// GridCreator grid_obs;
-				// grid_obs.createGrid(cloud, obs_idx);
-
-				// ObsClusterImg obs_cluster;
-				// obs_cluster.create_img(cloud_ori, obs_idx);
-				// obs_cluster.cluster();
-
-				// pcl::PointCloud<pcl::PointXYZI>::Ptr obsCloud(new pcl::PointCloud<pcl::PointXYZI>);
-				// for (auto idx : obs_idx)
-				// {
-				// 	obsCloud->push_back(cloud_ori->points[idx]);
-				// }
-
-				// CurbDetection curb_detection(*obsCloud);
-				// curb_detection.detectCurb();
-
-				// std::cout << "curb time is " << pcl::getTime() - t1 << "s" << std::endl;
-
-				// time_t tt1=pcl::getTime();
-				// ObsCluster obsCluster(*obsCloud);
-				// obsCluster.cluster();
-				// std::cout << "cluster time is " << pcl::getTime() - tt1 << "s" << std::endl;
-
-				CObstaclePair obsCluster(cloud_ori,cloud_src);
-				trackingCenter.inputSingFrameFigures(obsCluster.group_list(), g_frame_num, pcl::getTime());
-				std::cout << "cluster time is " << pcl::getTime() - t1 << "s" << std::endl;
-
-				//show
-				// pcl::PointCloud<pcl::PointXYZI>::Ptr obsCloud(new pcl::PointCloud<pcl::PointXYZI>);
-				// for (auto one : trackingCenter.getTrackerList())
-				// {
-				// 	*obsCloud += *(one.FiguresPro[0].cloudInside);
-				// }
-
-				cloud_show::show_points(trackingCenter.obs_points(), cloud_ori);
+				//publish result
+				//TODO:need change according to other message required
+				cloud_show::all_publish(obsCloud, cloud_ori);
 
 				g_frame_num++;
 
@@ -225,9 +204,6 @@ int main(int argc, char **argv)
 
 	if (boost::iequals(format, std::string("XYZI")))
 	{
-		//PointCloudColorHandlerGenericField<PointXYZI> color_handler("intensity");
-
-		//HDL32EViewer v(grabber, color_handler);
 		HDL32EViewer v(grabber);
 		v.run();
 	}

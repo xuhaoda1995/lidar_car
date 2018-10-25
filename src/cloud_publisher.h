@@ -7,10 +7,8 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <visualization_msgs/MarkerArray.h>
-
-#include "obs_cluster.h"
-#include "road_curb_detection.h"
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/point_cloud.h>
 
 namespace cloud_show{
 
@@ -21,9 +19,7 @@ namespace cloud_show{
 
     void init_pub();
 
-    // void show_points(const CTrackersCenter& trackingCenter,const CurbDetection& curbDetection,
-    // std::vector<int> &obs_idx,pcl::PointCloud<pcl::PointXYZI>::ConstPtr cloud_data);
-    void show_points(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_obs,
+    void all_publish(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_obs,
     pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ori);
 }
 
